@@ -5,7 +5,7 @@
 
 // Constants
 #define LED 16
-#define TCP_PORT 4322
+#define TCP_PORT 4444
 #define BUF_SIZE 2048
 #define POLL_TIME_S 5
 #define TEST_ITERATIONS 10
@@ -24,14 +24,9 @@ typedef struct TCP_SERVER_T_ {
 
 typedef struct DATA_T_ {
   float temp;
-  uint64_t time;
   char temp_unit;
+  uint64_t time;
 } DATA_T;
-
-typedef struct STATE_T_ {
-  TCP_SERVER_T* server;
-  DATA_T* data;
-} STATE_T;
 
 // Messages
 static char welcome_msg[] = "Welcome to this lwIP TCP server\n- Send 'TEMP' to receive the current temperature\n- Send 'TIME' to receive the current time\n";
