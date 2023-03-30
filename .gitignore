@@ -1,11 +1,4 @@
-/*
-
-!src/main.c
-!src/utils.g
-!src/defs.h
-!lib/
-!.gitignore
-!CMakeLists.txt
-!lwipopts.h
-!pico_sdk_import.cmake
-!README.md
+build/
+src/credentials.h
+.cache/
+src/.cache/
