@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -64,6 +65,12 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
   return ERR_OK;
 }
 
+static uint16_t lengthOf(uint8_t data[]){
+  uint16_t len = *(&data + 1) - data;
+  printf("The length of the data is %d\n", len);
+  return len;
+}
+
 /**
  * Function to send the data to the client
  *
@@ -71,11 +78,10 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
  * @param tcp_pcb     the client PCB
  * @param data	      the data to send
  */
-err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb, u_int8_t data[])
+err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb, uint8_t data[])
 {
   TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
- 
-  // TODO: Change this from strlen to something better
+  
   memcpy(state->buffer_sent, data, strlen(data));
 
   state->sent_len = 0;
@@ -114,7 +120,8 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
   // can use this method to cause an assertion in debug mode, if this method is called when
   // cyw43_arch_lwip_begin IS needed
   cyw43_arch_lwip_check();
-  if (p->tot_len > 0) {
+  if(p->tot_len > 0){
+    printf("Data: %s", ((char*) p->payload));
     printf("tcp_server_recv %d/%d err %d\n", p->tot_len, state->recv_len, err);
 
     // Receive the buffer
@@ -149,7 +156,7 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
 static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb) {
   TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
 
-  printf("Poll function called - reading temperature and time\n");
+  printf("Poll function called - reading temperature and time TODO THIS BLOCKS RECV\n");
 
   data->temp = read_temperature(data->temp_unit);
   data->time = read_time();
@@ -178,12 +185,10 @@ static void tcp_server_err(void *arg, err_t err) {
  */
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err) {
   TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
-  printf("accept");
   if (err != ERR_OK || client_pcb == NULL) {
     printf("Failed to accept\n");
     return ERR_VAL;
   }
-  printf("clear");
 
   printf("Client connected\n");
 
@@ -254,7 +259,7 @@ bool tcp_server_open(TCP_SERVER_T *state){
  * Runs all the functions to set up and start the TCP server
  */
 TCP_SERVER_T* init_server(){
-  TCP_SERVER_T *state = calloc(0,sizeof(TCP_SERVER_T));
+  TCP_SERVER_T *state = calloc(1,sizeof(TCP_SERVER_T));
 
   if(!state){
     printf("Failed to allocate the state\n");

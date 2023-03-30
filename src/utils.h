@@ -8,7 +8,7 @@
 #include "hardware/gpio.h"
 
 static inline float read_temperature(char unit){
-  printf("Reading temperature");
+  printf("Reading temperature\n");
   // Assuming a max value of 3.3V
   const float conversionFactor = 3.3f / (1 << 12);
 
