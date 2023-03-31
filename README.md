@@ -12,4 +12,4 @@ Netcat is very useful to send commands to the server. By default, debug messages
 
 ## How does the lwIP stack work? 
 
-All data for the connections are stored in the `TCP_SERVER_H` struct. Connections are controlled with a PCB (Protocol Control Block) which is why the `TCP_SERVER_H` struct is passed to all the callback functions.
+All data for the connections are stored in the `TCP_SERVER_H` struct. Connections are controlled with a PCB (Protocol Control Block) which is why the `TCP_SERVER_H` struct is passed to all the callback functions. Comments outline the purpose of each function.
