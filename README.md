@@ -8,6 +8,8 @@ The aim of this task is to learn the [lwIP](https://www.nongnu.org/lwip/2_1_x/in
 
 The challenge is to implement a TCP server on the Pico W which listens for commands and returns the relevant data. All commands and messages are outlined in the `defs.h` file; the current commands are `TEMP`, `TIME` and `SET C/F`.
 
+Netcat is very useful to send commands to the server.
+
 ## How does the lwIP stack work? 
 
 All data for the connections are stored in the `TCP_SERVER_H` struct. Connections are controlled with a PCB (Protocol Control Block) which is why the `TCP_SERVER_H` struct is passed to all the callback functions.
