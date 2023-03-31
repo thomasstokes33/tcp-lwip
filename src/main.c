@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include "hardware/timer.h"
 #include "lwip/err.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
@@ -16,7 +17,7 @@
 #include "defs.h"
 #include "utils.h"
 
-DATA_T *data;
+char temp_unit = 'C';
 
 static err_t tcp_server_close(void *arg) {
   TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
@@ -71,6 +72,71 @@ static uint16_t lengthOf(uint8_t data[]){
   return len;
 }
 
+
+/**
+ * Function to send the data to the client
+ *
+ * @param arg	      the state struct
+ * @param tcp_pcb     the client PCB
+ * @param data	      the data to send
+ */
+err_t tcp_server_send_temp(TCP_SERVER_T *arg, struct tcp_pcb *tpcb, float *data)
+{
+  TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+ 
+  memset(state->buffer_sent, 0, sizeof(state->buffer_sent));
+  memcpy(state->buffer_sent, data, sizeof(*data));
+
+  state->sent_len = 0;
+  printf("Writing %ld bytes to client\n", BUF_SIZE);
+  // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
+  // can use this method to cause an assertion in debug mode, if this method is called when
+  // cyw43_arch_lwip_begin IS needed
+  cyw43_arch_lwip_check();
+
+  // Write data for sending but does not send it immediately
+  // To force writing we can call tcp_output after tcp_write
+  err_t err = tcp_write(tpcb, state->buffer_sent, BUF_SIZE, TCP_WRITE_FLAG_COPY);
+  tcp_output(tpcb);
+  if (err != ERR_OK) {
+    printf("Failed to write data %d\n", err);
+    return ERR_VAL;
+  }
+  return ERR_OK;
+}
+
+/**
+ * Function to send the data to the client
+ *
+ * @param arg	      the state struct
+ * @param tcp_pcb     the client PCB
+ * @param data	      the data to send
+ */
+err_t tcp_server_send_time(TCP_SERVER_T *arg, struct tcp_pcb *tpcb, uint64_t *data)
+{
+  TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+  
+  memset(state->buffer_sent, 0, sizeof(state->buffer_sent));
+  memcpy(state->buffer_sent, data, sizeof(*data));
+
+  state->sent_len = 0;
+  printf("Writing %d bytes to client\n", sizeof(*data));
+  // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
+  // can use this method to cause an assertion in debug mode, if this method is called when
+  // cyw43_arch_lwip_begin IS needed
+  cyw43_arch_lwip_check();
+
+  // Write data for sending but does not send it immediately
+  // To force writing we can call tcp_output after tcp_write
+  err_t err = tcp_write(tpcb, data, sizeof(*data), TCP_WRITE_FLAG_COPY);
+  tcp_output(tpcb);
+  if (err != ERR_OK) {
+    printf("Failed to write data %d\n", err);
+    return ERR_VAL;
+  }
+  return ERR_OK;
+}
+
 /**
  * Function to send the data to the client
  *
@@ -82,6 +148,7 @@ err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb, uint8_t data[])
 {
   TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
   
+  memset(state->buffer_sent, 0, sizeof(state->buffer_sent));
   memcpy(state->buffer_sent, data, strlen(data));
 
   state->sent_len = 0;
@@ -94,12 +161,45 @@ err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb, uint8_t data[])
   // Write data for sending but does not send it immediately
   // To force writing we can call tcp_output after tcp_write
   err_t err = tcp_write(tpcb, state->buffer_sent, BUF_SIZE, TCP_WRITE_FLAG_COPY);
+  tcp_output(tpcb);
   if (err != ERR_OK) {
     printf("Failed to write data %d\n", err);
     return ERR_VAL;
   }
   return ERR_OK;
 }
+
+static void parseMsg(TCP_SERVER_T *state, struct tcp_pcb *tpcb, char* msg){
+  printf("Received message: %s\n", msg);
+  char res[BUF_SIZE];
+  memset(res, 0, BUF_SIZE);
+  if(strncmp(msg, cmd_time, 4) == 0){
+    uint64_t currentTime = read_time();
+    snprintf(res, BUF_SIZE, "System time is now %lld\n", currentTime);
+  } else if(strncmp(msg, cmd_temp, 4) == 0){
+    float temp = read_temperature(temp_unit);
+    snprintf(res, BUF_SIZE, "Temperature is %f %s\n", temp, &temp_unit);
+  } else if(strncmp(msg, cmd_set, 3) == 0){
+    char* split = strtok(msg, " ");
+    split = strtok(NULL, " ");
+    if(strncmp(split, "C", 1) == 0){
+      temp_unit = 'C';
+    } else if(strncmp(split, "F", 1) == 0){
+      temp_unit = 'F';
+    } else {
+      tcp_server_send_data(state, tpcb, msg_invalid_unit);
+      return;
+    }
+    snprintf(res, BUF_SIZE, "Temperature unit is now %s\n", &(temp_unit));
+
+  } else {
+    memcpy(res, msg_invalid_command, strlen(msg_invalid_command));
+  }
+
+  tcp_server_send_data((void*) state, tpcb, res);
+
+}
+
 
 /**
  * The method called when data is received at the host
@@ -144,6 +244,9 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     //}
     printf("tcp_server_recv buffer ok\n");
   }
+
+  parseMsg(state, tpcb, p->payload);
+
   return ERR_OK;
 }
 
@@ -154,13 +257,6 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
  * @param tpcb	  the relevant TCP Protcol Control Block
  */ 
 static err_t tcp_server_poll(void *arg, struct tcp_pcb *tpcb) {
-  TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
-
-  printf("Poll function called - reading temperature and time TODO THIS BLOCKS RECV\n");
-
-  data->temp = read_temperature(data->temp_unit);
-  data->time = read_time();
-
   return ERR_OK;
 }
 
@@ -202,12 +298,12 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err)
   tcp_recv(client_pcb, tcp_server_recv);
 
   // Specifies the polling interval and the callback function that should be called to poll the application
-  tcp_poll(client_pcb, tcp_server_poll, POLL_TIME_S * 2);
+  //tcp_poll(client_pcb, tcp_server_poll, POLL_TIME_S * 2);
 
   // Specifies the callback function called if a fatal error has occurred
   tcp_err(client_pcb, tcp_server_err);
 
-  return tcp_server_send_data(arg, state->client_pcb, welcome_msg);
+  return tcp_server_send_data(arg, state->client_pcb, msg_welcome);
 }
 
 /**
@@ -344,14 +440,6 @@ int main(){
   }
 
   printf("Connected to WiFi\n");
-
-  data = &((DATA_T){0.0, 'C', 0});
-
-  if(!data){
-    printf("Failed to allocate DATA space");
-    gpio_put(LED, 1);
-    return 1;
-  }
 
   TCP_SERVER_T *state = init_server();
   
