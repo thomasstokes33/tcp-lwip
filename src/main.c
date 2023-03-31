@@ -30,7 +30,7 @@ static err_t tcp_server_close(void *arg) {
     tcp_err(state->client_pcb, NULL);
     err = tcp_close(state->client_pcb);
     if (err != ERR_OK) {
-      printf("close failed %d, calling abort\n", err);
+      printf("Close failed %d, calling abort\n", err);
       tcp_abort(state->client_pcb);
       err = ERR_ABRT;
     }
@@ -47,9 +47,9 @@ static err_t tcp_server_close(void *arg) {
 /**
  * Called when the client acknowledges the sent data
  *
- * @param arg	  the state struct
+ * @param arg	    the state struct
  * @param tpcb	  the connection PCB for which data has been acknowledged
- * @param len	  the amount of bytes acknowledged
+ * @param len	    the amount of bytes acknowledged
  */
 static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
   TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
@@ -66,81 +66,10 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
   return ERR_OK;
 }
 
-static uint16_t lengthOf(uint8_t data[]){
-  uint16_t len = *(&data + 1) - data;
-  printf("The length of the data is %d\n", len);
-  return len;
-}
-
-
 /**
  * Function to send the data to the client
  *
- * @param arg	      the state struct
- * @param tcp_pcb     the client PCB
- * @param data	      the data to send
- */
-err_t tcp_server_send_temp(TCP_SERVER_T *arg, struct tcp_pcb *tpcb, float *data)
-{
-  TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
- 
-  memset(state->buffer_sent, 0, sizeof(state->buffer_sent));
-  memcpy(state->buffer_sent, data, sizeof(*data));
-
-  state->sent_len = 0;
-  printf("Writing %ld bytes to client\n", BUF_SIZE);
-  // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
-  // can use this method to cause an assertion in debug mode, if this method is called when
-  // cyw43_arch_lwip_begin IS needed
-  cyw43_arch_lwip_check();
-
-  // Write data for sending but does not send it immediately
-  // To force writing we can call tcp_output after tcp_write
-  err_t err = tcp_write(tpcb, state->buffer_sent, BUF_SIZE, TCP_WRITE_FLAG_COPY);
-  tcp_output(tpcb);
-  if (err != ERR_OK) {
-    printf("Failed to write data %d\n", err);
-    return ERR_VAL;
-  }
-  return ERR_OK;
-}
-
-/**
- * Function to send the data to the client
- *
- * @param arg	      the state struct
- * @param tcp_pcb     the client PCB
- * @param data	      the data to send
- */
-err_t tcp_server_send_time(TCP_SERVER_T *arg, struct tcp_pcb *tpcb, uint64_t *data)
-{
-  TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
-  
-  memset(state->buffer_sent, 0, sizeof(state->buffer_sent));
-  memcpy(state->buffer_sent, data, sizeof(*data));
-
-  state->sent_len = 0;
-  printf("Writing %d bytes to client\n", sizeof(*data));
-  // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
-  // can use this method to cause an assertion in debug mode, if this method is called when
-  // cyw43_arch_lwip_begin IS needed
-  cyw43_arch_lwip_check();
-
-  // Write data for sending but does not send it immediately
-  // To force writing we can call tcp_output after tcp_write
-  err_t err = tcp_write(tpcb, data, sizeof(*data), TCP_WRITE_FLAG_COPY);
-  tcp_output(tpcb);
-  if (err != ERR_OK) {
-    printf("Failed to write data %d\n", err);
-    return ERR_VAL;
-  }
-  return ERR_OK;
-}
-
-/**
- * Function to send the data to the client
- *
- * @param arg	      the state struct
+ * @param arg	        the state struct
  * @param tcp_pcb     the client PCB
  * @param data	      the data to send
  */
@@ -153,9 +82,7 @@ err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb, uint8_t data[])
 
   state->sent_len = 0;
   printf("Writing %ld bytes to client\n", BUF_SIZE);
-  // this method is callback from lwIP, so cyw43_arch_lwip_begin is not required, however you
-  // can use this method to cause an assertion in debug mode, if this method is called when
-  // cyw43_arch_lwip_begin IS needed
+
   cyw43_arch_lwip_check();
 
   // Write data for sending but does not send it immediately
@@ -169,6 +96,13 @@ err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb, uint8_t data[])
   return ERR_OK;
 }
 
+/**
+ * Parse a message and call the relevant functions
+ * 
+ * @param state     the state struct
+ * @param tpcb      the client pcb
+ * @param msg       the message received
+ */
 static void parseMsg(TCP_SERVER_T *state, struct tcp_pcb *tpcb, char* msg){
   printf("Received message: %s\n", msg);
   char res[BUF_SIZE];
@@ -233,17 +167,6 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     tcp_recved(tpcb, p->tot_len);
   }
   pbuf_free(p);
-
-  // Have we have received the whole buffer
-  if (state->recv_len == BUF_SIZE) {
-
-    // check it matches
-    //if (memcmp(state->buffer_sent, state->buffer_recv, BUF_SIZE) != 0) {
-    //  printf("buffer mismatch\n");
-    //  return tcp_server_result(arg, -1);
-    //}
-    printf("tcp_server_recv buffer ok\n");
-  }
 
   parseMsg(state, tpcb, p->payload);
 
