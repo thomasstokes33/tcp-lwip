@@ -8,7 +8,7 @@ The aim of this task is to learn the [lwIP](https://www.nongnu.org/lwip/2_1_x/in
 
 The challenge is to implement a TCP server on the Pico W which listens for commands and returns the relevant data. All commands and messages are outlined in the `defs.h` file; the current commands are `TEMP`, `TIME` and `SET C/F`.
 
-Netcat is very useful to send commands to the server.
+Netcat is very useful to send commands to the server. By default, debug messages are sent over UART and a status LED is used.
 
 ## How does the lwIP stack work? 
 
