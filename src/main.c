@@ -52,6 +52,12 @@ static err_t tcp_server_close(void *arg) {
  * @param len	    the amount of bytes acknowledged
  */
 static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
+  TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+  state->sent_len += len;
+  if (state->sent_len>=BUF_SIZE) {
+    printf("Waiting for client");
+    state->buffer_recv=0;
+  }
   return ERR_OK;
 }
 
@@ -64,6 +70,19 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
  */
 err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb, uint8_t data[])
 {
+  TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+  memset(state->buffer_sent,0,BUF_SIZE);
+  memcpy(state->buffer_sent,data,strlen(data));
+  state->sent_len =0;
+  printf("writing to client\n");
+  err_t err = tcp_write(tpcb,state->buffer_sent,BUF_SIZE,TCP_WRITE_FLAG_COPY);
+  if (err!=ERR_OK) {
+    printf("Write failed %d\n", err);
+    return ERR_VAL;
+  } else {
+    tcp_output(tpcb); //flushes only if there's no error
+  }
+  
   return ERR_OK;
 }
 
@@ -115,6 +134,27 @@ static void parseMsg(TCP_SERVER_T *state, struct tcp_pcb *tpcb, char* msg){
  * @param err	  an error code if there has been an error receiving
  */
 err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
+  TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+  if (!p) {
+    printf("no received");
+    return ERR_VAL;
+  }
+
+  if (p->tot_len) {
+    printf("Received %d bytes\n", p->tot_len);
+    printf("Received string: %s\n", ((char*) p->payload)); //casting to char pointer means we can print as a string as it will read until 0.
+    const u16_t bufferLeft = BUF_SIZE - state->recv_len;  //u16_t is unsigned 16 bit integer and typdef for uint16_t
+    state->recv_len += pbuf_copy_partial(p,state->buffer_recv + state->recv_len, p->tot_len<=bufferLeft ? p->tot_len:bufferLeft,0);
+    printf("Amount actually tried to read %d\n",p->tot_len<=bufferLeft ? p->tot_len:bufferLeft); //copy partial may have copied less.
+
+    tcp_recved(tpcb,p->tot_len); //called when data is processed. this allows for advertising of larger window. why tot_len and not recv_len?
+
+    
+  }
+  pbuf_free(p);
+
+  parseMsg(state,tpcb,(char*) state->buffer_recv); //may cause bug
+
   return ERR_OK;
 }
 
@@ -148,6 +188,16 @@ static void tcp_server_err(void *arg, err_t err) {
  * @param err		the error code (if present)
  */
 static err_t tcp_server_accept(void *arg, struct tcp_pcb *client_pcb, err_t err) {
+
+  TCP_SERVER_T *state = (TCP_SERVER_T*)arg;
+  
+  printf("client connected");
+  state->client_pcb = client_pcb;  //todo:more error checking
+  tcp_arg(client_pcb,state);
+  tcp_recv(client_pcb, tcp_server_recv);
+  tcp_sent(client_pcb, tcp_server_sent);
+  tcp_err(client_pcb, tcp_server_err);
+  
   return tcp_server_send_data(arg, state->client_pcb, msg_welcome);
 }
 
