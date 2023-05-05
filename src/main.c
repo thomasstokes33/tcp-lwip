@@ -94,7 +94,7 @@ err_t tcp_server_send_data(void *arg, struct tcp_pcb *tpcb, uint8_t data[])
  * @param msg       the message received
  */
 static void parseMsg(TCP_SERVER_T *state, struct tcp_pcb *tpcb, char* msg){
-  printf("Received message: %s EOT\n", msg);
+  printf("Received message: %sEOT\n", msg); //interesting behaviour: if you write a long message to the buffer, it persists until the next message so abcdef followed by TEMP, would read TEMP\nf
   char res[BUF_SIZE];
   memset(res, 0, BUF_SIZE);
   if(strncmp(msg, cmd_time, 4) == 0){
@@ -142,12 +142,13 @@ err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
 
   if (p->tot_len) {
     printf("Received %d bytes\n", p->tot_len);
-    printf("Received string: %s EOT\n", ((char*) p->payload)); //casting to char pointer means we can print as a string as it will read until 0.
+    printf("Received string: %sEOT\n", ((char*) p->payload)); //casting to char pointer means we can print as a string as it will read until 0.
     const u16_t bufferLeft = BUF_SIZE - state->recv_len;  //u16_t is unsigned 16 bit integer and typdef for uint16_t
     state->recv_len += pbuf_copy_partial(p,state->buffer_recv + state->recv_len, p->tot_len<=bufferLeft ? p->tot_len:bufferLeft,0);
     printf("Amount actually tried to read %d\n",p->tot_len<=bufferLeft ? p->tot_len:bufferLeft); //copy partial may have copied less.
 
-    tcp_recved(tpcb,p->len); //called when data is processed. this allows for advertising of larger window. why tot_len and not recv_len?
+    tcp_recved(tpcb,p->len); //called when data is processed. this allows for advertising of larger window. why tot_len and not recv_len? due to the buffer size, if total length is not read, the extra is lost
+    //p->len is not used as that may be the pbuf storing just the first letter. we want the whole chain. 
 
     
   }
