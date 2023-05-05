@@ -1,5 +1,5 @@
 #!/bin/bash
 
-PROJECT_DIR=~/Downloads/tcp-attempt2/pico-tcp-server
+PROJECT_DIR=~/Downloads/gittcp/tcp-lwip
 
-cd ${PROJECT_DIR} && cd ./build/ && cmake .. -DPICO_BOARD=pico_w && make 
+cd ${PROJECT_DIR} && cd ./build && cmake .. -DPICO_BOARD=pico_w && make 
