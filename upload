@@ -1,5 +1,5 @@
 #!/bin/bash
 
-PROJECT_DIR=/home/toby/Code/uni/comp2215/tcpServer/
+PROJECT_DIR=~/Downloads/tcp-attempt2/pico-tcp-server
 
-cd ${PROJECT_DIR} && cd ./build/ && cmake .. -DPICO_BOARD=pico_w && ninja && cp ./*.uf2 /run/media/$USERNAME/RPI-RP2/
+cd ${PROJECT_DIR} && cd ./build/ && cmake .. -DPICO_BOARD=pico_w && make 
