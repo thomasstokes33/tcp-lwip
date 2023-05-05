@@ -56,7 +56,7 @@ static err_t tcp_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
   state->sent_len += len;
   if (state->sent_len>=BUF_SIZE) {
     printf("Waiting for client");
-    state->buffer_recv=0;
+    state->recv_len=0;
   }
   return ERR_OK;
 }
